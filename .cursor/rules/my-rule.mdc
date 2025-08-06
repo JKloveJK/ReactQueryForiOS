@@ -1,0 +1,126 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# iOS 项目开发规则总结
+
+## 需求分析与实现
+
+1. **需求理解**：所有需求分析需结合 iOS 生态特性（如系统权限、用户习惯、HIG 规范）精准理解用户意图。必要时组织跨角色研讨（产品、设计、开发），重点评估需求在 iOS 端的可行性（如后台任务限制、推送权限依赖等）。所有需求分析需深入结合 context7 来精准理解用户意图。必要时，可组织专门的需求研讨会议，邀请相关人员共同分析，确保对用户需求的全面把握。
+2. **方案完善**：技术方案需遵循「iOS 原生最佳实践」，优先采用系统 API 而非第三方库（如网络请求可优先考虑 `URLSession` 而非强制依赖 `Alamofire`）。方案评审需包含性能评估（如列表滑动流畅度、启动时间）和用户体验验证（如手势交互符合系统预期）。
+
+## 项目基础环境
+
+3. **版本兼容性**：项目最低支持 iOS 15.0，开发工具统一使用 Xcode 14.0+。所有代码需兼容 Swift 5.7 语法，第三方库需明确标注支持的 iOS 版本范围（禁止引入仅支持 iOS 16+ 但项目需兼容 iOS 15 的库）。
+4. **依赖管理**：优先使用 Swift Package Manager（SPM）管理依赖，其次选择 CocoaPods。依赖版本需锁定主版本号（如 `Alamofire ~> 5.0`），避免自动升级导致的兼容性问题。
+
+## 代码规范与结构
+
+5. **命名规范**：
+   - 类/结构体/枚举：采用 `UpperCamelCase`（如 `UserProfileViewController`、`NetworkManager`）。
+   - 方法/属性：采用 `lowerCamelCase`（如 `fetchUserData()`、`isUserLoggedIn`）。
+   - 常量：采用 `UPPER_SNAKE_CASE`（如 `let MAX_RETRY_COUNT = 3`）。
+   - 协议：以 `Protocol` 结尾（如 `NetworkingProtocol`），代理协议以 `Delegate` 结尾（如 `ListCellDelegate`）。
+6. **文件组织**：按「模块 + 功能」划分目录，示例结构：
+   ```
+   ProjectName/
+   ├── Modules/                # 业务模块
+   │   ├── Home/               # 首页模块
+   │   │   ├── Views/          # 视图（ViewController、View）
+   │   │   ├── ViewModels/     # 视图模型
+   │   │   ├── Models/         # 数据模型
+   │   │   └── Services/       # 业务服务
+   ├── Core/                   # 核心组件
+   │   ├── Networking/         # 网络层
+   │   ├── Storage/            # 存储层（缓存、数据库）
+   │   └── UIComponents/       # 通用UI组件
+   └── Resources/              # 资源文件（图片、字符串、xib）
+   ```
+7. **代码风格**：强制使用 SwiftLint 检查代码风格，配置文件统一放在项目根目录（`.swiftlint.yml`），禁止忽略「未使用变量」「强制解包」等严重问题。
+
+## 界面开发规范
+
+8. **UI 框架选择**：
+   - 复杂交互页面（如列表、表单）优先使用 UIKit，确保性能和兼容性。
+   - 简单页面或需要快速迭代的功能可使用 SwiftUI，但需做好版本适配（通过 `@available` 标注）。
+   - 禁止混合使用 UIKit 和 SwiftUI 时出现冗余桥接（如无必要不使用 `UIHostingController` 嵌套）。
+9. **布局规范**：
+   - 优先使用 Auto Layout 进行界面布局，禁用 frame 硬编码（适配多设备尺寸）。
+   - 约束命名需清晰（如 `topToSuperview`、`leadingToLabel`），避免无意义的 `constraint1` `constraint2`。
+   - 列表视图（UITableView/UICollectionView）必须实现单元格重用（`dequeueReusableCell`），并设置 `estimatedRowHeight` 优化滚动性能。
+10. **资源管理**：
+    - 图片资源使用 Asset Catalog 管理，按模块划分目录（如 `Home/`、`Profile/`），并适配深色模式（添加 Dark 变体）。
+    - 字符串需使用 `Localizable.strings` 管理，支持多语言，禁止在代码中硬编码文本（如 `label.text = NSLocalizedString("welcome", comment: "")`）。
+
+## 状态管理与业务逻辑
+
+11. **架构模式**：统一采用 MVVM 架构：
+    - View（ViewController/View）：仅负责 UI 展示和用户交互，不包含业务逻辑。
+    - ViewModel：处理业务逻辑，通过 `@Published` 或 `Combine` 发布数据变更，与 View 单向通信。
+    - Model：纯数据结构（`struct`），遵循 `Codable` 协议，不包含业务方法。
+12. **状态管理**：
+    - 简单状态（如页面内弹窗显示/隐藏）使用 `@State`（SwiftUI）或属性（UIKit）管理。
+    - 跨页面共享状态（如用户登录状态）使用 `Combine` 发布者 + 单例管理，或引入轻量库（如 `TCA`、`RxSwift`，需团队统一）。
+    - 禁止在 ViewModel 中持有 View 引用（避免循环引用），通过闭包或代理回调交互。
+13. **网络请求**：
+    - 网络层需封装统一接口，支持请求拦截、响应解析、错误处理（如 `NetworkService.request()`）。
+    - 请求参数和响应模型需用 `struct` 定义，明确字段类型（禁止使用 `[String: Any]` 直接解析）。
+    - 所有网络请求必须包含超时处理（默认 15 秒）和重试机制（最多 3 次，指数退避策略）。
+
+## 性能优化规范
+
+14. **内存管理**：
+    - 严格避免循环引用（尤其是闭包中使用 `self` 时，需用 `[weak self]` 修饰）。
+    - 大对象（如图片、视频数据）使用 `weak` 引用或及时释放，在 `deinit` 中清理资源（如取消网络请求、移除通知监听）。
+    - 避免在 `viewDidLoad` 中初始化非必要资源，延迟到 `viewWillAppear` 加载。
+15. **UI 性能**：
+    - 图片加载需异步处理，使用缓存库（如 `Kingfisher`）管理网络图片，避免主线程阻塞。
+    - 列表滑动时禁止执行 heavy 操作（如大量计算、同步网络请求），可通过 `DispatchQueue.global().async` 异步处理后切回主线程更新 UI。
+    - 自定义绘制优先使用 `Core Graphics` 或 `CAShapeLayer`，避免重写 `draw(_ rect: CGRect)`（性能较差）。
+16. **启动优化**：
+    - 启动任务按优先级划分，必要初始化（如环境配置）在 `application(_:didFinishLaunchingWithOptions:)` 执行，非必要任务（如统计初始化）延迟到启动后异步执行。
+    - 禁止在启动阶段注册过多通知或监听，减少主线程阻塞。
+
+## 错误处理与日志
+
+17. **错误处理**：
+    - 自定义错误枚举（如 `AppError.network`、`AppError.storage`），明确错误类型和描述。
+    - 所有异步操作（网络请求、文件读写）必须使用 `try/catch` 捕获错误，或通过 `Result` 类型返回，禁止直接忽略错误（如 `try!`）。
+    - 向用户展示错误时需转换为友好提示（如网络错误显示“请检查网络连接”），避免直接暴露技术细节。
+18. **日志规范**：
+    - 开发环境可打印详细日志（使用 `os_log` 或自定义日志工具），生产环境仅保留关键操作日志（如登录、支付）。
+    - 日志需包含模块名、时间戳、级别（info/warn/error），示例：`[HomeModule][2023-10-01 12:00:00][INFO] 用户点击了按钮`。
+
+## 安全与合规
+
+19. **数据安全**：
+    - 敏感数据（如用户 token、密码）需存储在 `Keychain`，禁止明文存储在 `UserDefaults` 或沙盒文件中。
+    - 网络请求必须使用 HTTPS，禁止在生产环境使用 HTTP（特殊场景需申请例外并说明理由）。
+20. **权限处理**：
+    - 访问系统权限（相机、相册、位置）前必须检查权限状态，并提供清晰的权限申请理由（如 `NSCameraUsageDescription` 需说明“需要相机权限以拍摄头像”）。
+    - 权限被拒绝后，引导用户到设置页开启（提供跳转按钮），避免直接阻断功能。
+21. **App Store 合规**：
+    - 代码中禁止包含测试代码、隐藏功能（如通过特定手势触发的调试页面）。
+    - 遵循苹果审核指南，如支付功能必须使用 `StoreKit`，禁止引导用户使用第三方支付。
+
+## 版本控制与协作
+
+22. **分支管理**：
+    - `main` 分支保持可发布状态，开发新功能使用 `feature/xxx` 分支，修复线上问题使用 `hotfix/xxx` 分支。
+    - 提交代码需关联需求单号（如 `[REQ-1234] 修复首页列表崩溃问题`），禁止无意义提交（如“修改了点东西”）。
+23. **代码审查**：
+    - 提交 PR 前必须自审，确保无编译错误、SwiftLint 无警告。
+    - 代码审查重点检查：内存泄漏风险、UI 性能问题、业务逻辑正确性、测试覆盖度（核心功能需附带单元测试）。
+
+## 测试与发布
+
+24. **测试要求**：
+    - 核心业务逻辑（如支付、登录）必须编写单元测试（使用 `XCTest`），覆盖率不低于 70%。
+    - 新功能需在至少 3 种设备尺寸（如 iPhone SE、iPhone 14、iPhone 14 Pro Max）上测试，覆盖 iOS 最低版本和最新版本。
+25. **发布规范**：
+    - 打包前执行 `Product > Analyze` 检查潜在问题（如内存泄漏、未使用变量）。
+    - 提交 App Store 时，版本号遵循语义化（如 `主版本.次版本.修订号`），更新日志需说明用户可见的变化（避免技术术语）。
+
+通过遵循以上规则，确保 iOS 项目代码规范、性能稳定、用户体验一致，同时降低维护成本和线上问题率。
