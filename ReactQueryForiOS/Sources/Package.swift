@@ -27,7 +27,11 @@ let package = Package(
         .target(
             name: "ReactQueryForiOS",
             dependencies: [],
-            path: "Sources"),
+            path: "Sources",
+            exclude: [
+                "Demo",
+                "Tests"
+            ]),
         .executableTarget(
             name: "ReactQueryForiOSDemo",
             dependencies: ["ReactQueryForiOS"],

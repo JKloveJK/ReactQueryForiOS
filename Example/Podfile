@@ -1,0 +1,20 @@
+# Uncomment the next line to define a global platform for your project
+platform :ios, '15.0'
+
+target 'ReactQueryForiOSExample' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for ReactQueryForiOSExample
+  pod 'ReactQueryForiOS', '~> 1.0.0'
+
+  target 'ReactQueryForiOSExampleTests' do
+    inherit! :search_paths
+    # Pods for testing
+  end
+
+  target 'ReactQueryForiOSExampleUITests' do
+    # Pods for testing
+  end
+
+end 

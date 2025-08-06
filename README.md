@@ -10,17 +10,32 @@
 - ✅ **查询失效**: 支持手动和自动使查询失效
 - ✅ **突变操作**: 支持数据修改操作，自动失效相关查询
 - ✅ **SwiftUI 集成**: 提供便捷的 SwiftUI 组件和视图模型
+- ✅ **UIKit 支持**: 完整的 UIKit 集成和示例
 - ✅ **Combine 支持**: 基于 Combine 框架，支持响应式编程
 - ✅ **类型安全**: 完全类型安全，编译时检查
 - ✅ **iOS 15.0+**: 支持 iOS 15.0 及以上版本
 
 ## 安装
 
+### CocoaPods
+
+在您的 `Podfile` 中添加：
+
+```ruby
+pod 'ReactQueryForiOS', '~> 1.0.0'
+```
+
+然后运行：
+
+```bash
+pod install
+```
+
 ### Swift Package Manager
 
 在 Xcode 项目中添加依赖：
 
-1. 选择你的项目
+1. 选择您的项目
 2. 点击 "Package Dependencies" 标签
 3. 点击 "+" 按钮
 4. 输入仓库 URL: `https://github.com/JKloveJK/ReactQueryForiOS.git`
@@ -56,7 +71,7 @@ struct User: Codable, Identifiable {
 
 ```swift
 func fetchUsers() async throws -> [User] {
-    // 你的网络请求逻辑
+    // 您的网络请求逻辑
     let url = URL(string: "https://api.example.com/users")!
     let (data, _) = try await URLSession.shared.data(from: url)
     return try JSONDecoder().decode([User].self, from: data)
@@ -188,23 +203,21 @@ QueryView(
 let mutationClient = MutationClient(queryClient: queryClient)
 
 // 执行突变
-mutationClient.mutate(
+mutationClient.mutateAndInvalidate(
     key: "create-user",
     mutationFn: createUser,
-    onSuccess: { user in
+    invalidateQueries: ["users"]
+)
+.sink { result in
+    switch result {
+    case .success(let user):
         print("用户创建成功: \(user)")
-    },
-    onError: { error in
+    case .failure(let error):
         print("创建失败: \(error)")
+    case .loading:
+        break
     }
-)
-
-// 突变并自动失效相关查询
-mutationClient.mutateAndInvalidate(
-    key: "update-user",
-    mutationFn: updateUser,
-    invalidateQueries: ["users", "user:123"]
-)
+}
 ```
 
 ### QueryKey
@@ -235,18 +248,15 @@ let matchingKeys = QueryKeyPattern.getMatchingKeys(allKeys, pattern: pattern)
 ```swift
 let networkService = NetworkService(
     baseURL: URL(string: "https://api.example.com")!,
-    headers: ["Authorization": "Bearer token"],
-    timeoutInterval: 15.0
+    headers: ["Authorization": "Bearer token"]
 )
 
-// 定义 API 端点
 let endpoint = APIEndpoint(
     path: "/users",
     method: .get,
     queryItems: ["page": "1", "limit": "10"]
 )
 
-// 执行请求
 networkService.request(endpoint)
     .sink(
         receiveCompletion: { completion in
@@ -256,7 +266,6 @@ networkService.request(endpoint)
             // 处理数据
         }
     )
-    .store(in: &cancellables)
 ```
 
 ## 视图模型
@@ -412,6 +421,28 @@ class CreateUserViewController: UIViewController {
 }
 ```
 
+## 配置选项
+
+### 查询配置
+
+```swift
+let config = QueryConfig(
+    staleTime: 5 * 60,        // 数据过期时间
+    cacheTime: 10 * 60,       // 缓存时间
+    retryCount: 3,            // 重试次数
+    retryDelay: 1.0,          // 重试延迟
+    enableBackgroundRefresh: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
+)
+```
+
+### 预设配置
+
+- `QueryConfig.fastStale`: 快速过期，适用于实时数据
+- `QueryConfig.slowStale`: 慢速过期，适用于静态数据
+- `QueryConfig.infiniteCache`: 无限缓存，适用于配置数据
+
 ## 最佳实践
 
 ### 1. 查询键命名
@@ -477,7 +508,7 @@ QueryView(
 - 使用适当的缓存策略减少网络请求
 - 避免在短时间内重复查询相同数据
 - 合理使用预取功能
-- 及时清理不需要的缓存
+- 及时清理过期缓存
 
 ## 示例项目
 
